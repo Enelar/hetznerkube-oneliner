@@ -13,10 +13,12 @@ echo $TOKEN > /current_token
 cp -R /keys/state /root/.hetzner-kube
 chown root:root /root/.hetzner-kube
 
-hetzner-kube context add hko < /current_token > /dev/null 2>&1
-hetzner-kube context use hko > /dev/null 2>&1
+if [ ! -f /root/.hetzner-kube/config.json ]; then 
+  hetzner-kube context add hko < /current_token > /dev/null 2>&1
+  hetzner-kube context use hko > /dev/null 2>&1
+fi
 ssh-keygen -t rsa -f /keys/ssh_root > /dev/null 2>&1
-hetzner-kube ssh-key add --name ssh_root --private-key-path /keys/ssh_root --public-key-path /keys/ssh_root.pub > /dev/null 2>&1
+hetzner-kube ssh-key add --name hko_ssh_root --private-key-path /keys/ssh_root --public-key-path /keys/ssh_root.pub > /dev/null 2>&1
 
 case $1 in
   "help")
@@ -40,8 +42,12 @@ case $2 in
 
     ;;
 
-  "add_node")
+  "add-node")
     hetzner-kube cluster add-worker --name $1 --nodes 1
+    ;;
+
+  "del-node")
+    hetzner-kube cluster remove-worker --name $1 --worker $3
     ;;
 
   "destroy")
@@ -55,7 +61,7 @@ case $2 in
   "config")
     hetzner-kube cluster kubeconfig $1
     cp /root/.kube/config config
-    
+
     yq -i -y '.["current-context"] = "hko-admin-'$1'@hko-'$1'"' config
     yq -i -y '.contexts[0].context.cluster = "hko-'$1'"' config
     yq -i -y '.contexts[0].context.user = "hko-admin-'$1'"' config
@@ -67,9 +73,21 @@ case $2 in
     cp config /keys/config/$1
     ;;
 
+  "init-storage")
+    hetzner-kube cluster kubeconfig $1
+
+    echo "Expected Server version: 1.18+"
+    kubectl version --short 
+  
+    kubectl apply -f https://raw.githubusercontent.com/hetznercloud/csi-driver/v1.5.1/deploy/kubernetes/hcloud-csi.yml
+
+    TOKEN_ONELINE=`echo "${TOKEN}" | head -1`
+    yq -i -y '.stringData.token = "'$TOKEN_ONELINE'"' /csi-secret.yml
+    kubectl apply -f /csi-secret.yml
+    ;;
 
   *)
-    echo "unknown"
+    echo "command unknown"
     ;;
 esac
 
