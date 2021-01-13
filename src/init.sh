@@ -84,6 +84,35 @@ case $2 in
     TOKEN_ONELINE=`echo "${TOKEN}" | head -1`
     yq -i -y '.stringData.token = "'$TOKEN_ONELINE'"' /csi-secret.yml
     kubectl apply -f /csi-secret.yml
+
+    echo "CSI uses ~ 16MB on each node + 60Mb"
+    ;;
+
+  "init-helm")
+    hetzner-kube cluster kubeconfig $1
+
+    kubectl -n kube-system create serviceaccount tiller
+    kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+    helm init --service-account=tiller
+
+    mkdir /keys/helm > /dev/null 2>&1
+    cp -R /root/.helm /keys/helm/$1
+
+    echo "Tiler uses ~ 30MB"
+    ;;
+
+  "delete-helm")
+    hetzner-kube cluster kubeconfig $1
+    kubectl -n kube-system delete deployment tiller-deploy
+    kubectl delete clusterrolebinding tiller
+    kubectl -n kube-system delete serviceaccount tiller
+    ;;
+
+  "helm")
+    hetzner-kube cluster kubeconfig $1 > /dev/null 2>&1
+    helm init --service-account=tiller --client-only > /dev/null 2>&1
+    helm $2 $3 $4 $5 $6 $7 $8 $9
+
     ;;
 
   *)

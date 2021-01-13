@@ -15,4 +15,7 @@ RUN pip install --no-cache --upgrade yq
 RUN wget -q "https://storage.googleapis.com/kubernetes-release/release/$(wget -q -O - https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" -O /usr/local/bin/kubectl \
   && chmod +x /usr/local/bin/kubectl 
 
+RUN apk add --update --no-cache curl openssl
+RUN curl "https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get" | bash
+
 COPY * /
